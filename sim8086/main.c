@@ -40,7 +40,7 @@ void print_binary(const unsigned char *array, size_t size)
 	printf("\n");
 }
 
-int main()
+int main(int argc, const char* argv[])
 {
 
 	FILE *file;
@@ -48,7 +48,8 @@ int main()
 	long fileLen;
 
 	// file = fopen("listing_0037_single_register_mov", "rb");
-	file = fopen("listing_0038_many_register_mov", "rb");
+	// file = fopen("listing_0038_many_register_mov", "rb");
+	file = fopen(argv[1], "rb");
 	if (!file)
 	{
 		perror("Unable to open file");
@@ -71,29 +72,29 @@ int main()
 	fread(buffer, fileLen, 1, file);
 	fclose(file);
 
-	printf("file len: %ld\n", fileLen);
-	// print_binary(buffer, fileLen);
+	printf("bits 16\n");
 
 	for (int i = 0; i < fileLen; i+=2)
 	{
 
-		print_binary(&buffer[i], 1);
-		print_binary(&buffer[i + 1], 1);
+		// print_binary(&buffer[i], 1);
+		// print_binary(&buffer[i + 1], 1);
 
 		int opcode = buffer[i] >> 2;
-		printf("opcode is: %s\n", opcode_map[opcode]);
 
-		int D = (buffer[i] >> 1) & 1;
+		// int D = (buffer[i] >> 1) & 1;
 		int W = buffer[i] & 1;
 
-		printf("D is: %c, W is %c\n", D ? '1' : '0', W ? '1' : '0');
-
-		int MOD = (buffer[i + 1] >> 6) & 0b11;
+		// int MOD = (buffer[i + 1] >> 6) & 0b11;
 
 		int REG = (buffer[i + 1] >> 3) & 0b111;
-		printf("REG + W %d\n", (REG << 1) + W);
 		const char *reg = reg_w_map[(REG << 1) + W];
-		printf("MOD is %d, REG is %d, register is %s\n", MOD, REG, reg);
+		
+		int RM = buffer[i + 1] & 0b111;
+		// MOD is always 3 (for now), so R/M is just another REG:
+		const char *rm = reg_w_map[(RM << 1) + W];
+		
+		printf("%s %s, %s\n", opcode_map[opcode], rm, reg);
 	}
 
 	free(buffer);
