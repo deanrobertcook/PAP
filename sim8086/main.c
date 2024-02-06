@@ -2,10 +2,10 @@
 #include <stdlib.h>
 #include <errno.h>
 
-static const char *opcode_map[] = {
-		[0b000000] = "ADD",
-		[0b100010] = "MOV",
-};
+// static const char *opcode_map[] = {
+// 		[0b100010] = "MOV", // reg/mem to/from reg/mem
+// 		[0b1011] = "MOV",		// immediate to register
+// };
 
 // index is REG << 3 + W
 static const char *reg_w_map[] = {
@@ -40,15 +40,18 @@ void print_binary(const unsigned char *array, size_t size)
 	printf("\n");
 }
 
-int main(int argc, const char* argv[])
+int main(int argc, const char *argv[])
 {
 
 	FILE *file;
 	unsigned char *buffer;
 	long fileLen;
 
-	// file = fopen("listing_0037_single_register_mov", "rb");
-	// file = fopen("listing_0038_many_register_mov", "rb");
+	if (argc != 2)
+	{
+		printf("Missing filename of binary to be disassembled\n");
+		return 1;
+	}
 	file = fopen(argv[1], "rb");
 	if (!file)
 	{
@@ -74,27 +77,44 @@ int main(int argc, const char* argv[])
 
 	printf("bits 16\n");
 
-	for (int i = 0; i < fileLen; i+=2)
+	int i = 0;
+
+	while (i < fileLen)
 	{
+		if (buffer[i] >> 4 == 0b1011) // MOV immediate to reg
+		{
+			int W = (buffer[i] >> 3) & 1;
+			int REG = (buffer[i]) & 0b111;
+			const char *reg = reg_w_map[(REG << 1) + W];
+			int data = buffer[i + 1];
+			if (W == 1)
+			{
+				data = data + (buffer[i + 2] << 8);
+			}
+			printf("MOV %s, %d\n", reg, data);
+			i += W == 1 ? 3 : 2;
+		}
+		else if (buffer[i] >> 2 == 0b100010) // MOV reg/mem to/from reg/mem
+		{
+			int W = buffer[i] & 1;
 
-		// print_binary(&buffer[i], 1);
-		// print_binary(&buffer[i + 1], 1);
+			// int MOD = (buffer[i + 1] >> 6) & 0b11;
 
-		int opcode = buffer[i] >> 2;
+			int REG = (buffer[i + 1] >> 3) & 0b111;
+			const char *reg = reg_w_map[(REG << 1) + W];
 
-		// int D = (buffer[i] >> 1) & 1;
-		int W = buffer[i] & 1;
+			int RM = buffer[i + 1] & 0b111;
+			// MOD is always 3 (for now), so R/M is just another REG:
+			const char *rm = reg_w_map[(RM << 1) + W];
 
-		// int MOD = (buffer[i + 1] >> 6) & 0b11;
-
-		int REG = (buffer[i + 1] >> 3) & 0b111;
-		const char *reg = reg_w_map[(REG << 1) + W];
-		
-		int RM = buffer[i + 1] & 0b111;
-		// MOD is always 3 (for now), so R/M is just another REG:
-		const char *rm = reg_w_map[(RM << 1) + W];
-		
-		printf("%s %s, %s\n", opcode_map[opcode], rm, reg);
+			printf("MOV %s, %s\n", rm, reg);
+			i += 2;
+		}
+		else
+		{
+			printf("Unknown opcode, aborting");
+			return 1;
+		}
 	}
 
 	free(buffer);
