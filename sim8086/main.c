@@ -27,6 +27,17 @@ static const char *reg_w_map[] = {
 		[0b1111] = "DI",
 };
 
+static const char *ea_base[] = {
+		[0b000] = "[BX + SI]",
+		[0b001] = "[BX + DI]",
+		[0b010] = "[BP + SI]",
+		[0b011] = "[BP + DI]",
+		[0b100] = "[SI]",
+		[0b101] = "[DI]",
+		[0b110] = "[BP]",
+		[0b111] = "[BX]",
+};
+
 void print_binary(const unsigned char *array, size_t size)
 {
 	for (int i = 0; i < size; i++)
@@ -98,17 +109,36 @@ int main(int argc, const char *argv[])
 		{
 			int W = buffer[i] & 1;
 
-			// int MOD = (buffer[i + 1] >> 6) & 0b11;
-
+			int MOD = (buffer[i + 1] >> 6) & 0b11;
 			int REG = (buffer[i + 1] >> 3) & 0b111;
-			const char *reg = reg_w_map[(REG << 1) + W];
-
+			const char *reg = reg_w_map[(REG << 1) + W]; //TODO - handle direction
 			int RM = buffer[i + 1] & 0b111;
-			// MOD is always 3 (for now), so R/M is just another REG:
-			const char *rm = reg_w_map[(RM << 1) + W];
 
-			printf("MOV %s, %s\n", rm, reg);
-			i += 2;
+			switch (MOD)
+			{
+			case 0b00:
+			{
+				const char *eff_addr = ea_base[RM];
+				printf("MOV %s, %s\n", reg, eff_addr);
+				i += 2;
+				break;
+			}
+
+			case 0b01:
+				break;
+
+			case 0b10:
+				break;
+
+			case 0b11:
+			{
+				
+				const char *rm = reg_w_map[(RM << 1) + W];
+				printf("MOV %s, %s\n", rm, reg);
+				i += 2;
+				break;
+			}
+			}
 		}
 		else
 		{
