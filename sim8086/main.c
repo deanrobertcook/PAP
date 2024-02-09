@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <string.h>
 
 // static const char *opcode_map[] = {
 // 		[0b100010] = "MOV", // reg/mem to/from reg/mem
@@ -37,6 +38,28 @@ static const char *ea_base[] = {
 		[0b110] = "[BP]",
 		[0b111] = "[BX]",
 };
+
+char *add_displacement(char* res, const char *ea_base, int displ)
+{
+	size_t len_base = strnlen(ea_base, 10);
+	char displ_str[10];
+	sprintf(displ_str, "%d", displ);
+	size_t len_disp = strnlen(displ_str, 10);
+	int i;
+	for (i = 0; i < len_base - 2; i++)
+	{
+		res[i] = ea_base[i];
+	}
+	res[i] = ' ';
+	res[i++] = '+';
+	res[i++] = ' ';
+	for (int j = 0; j < len_disp; j++)
+	{
+		res[i] = displ_str[j];
+	}
+	res[i] = ']';
+	return res;
+}
 
 void print_binary(const unsigned char *array, size_t size)
 {
@@ -111,7 +134,7 @@ int main(int argc, const char *argv[])
 
 			int MOD = (buffer[i + 1] >> 6) & 0b11;
 			int REG = (buffer[i + 1] >> 3) & 0b111;
-			const char *reg = reg_w_map[(REG << 1) + W]; //TODO - handle direction
+			const char *reg = reg_w_map[(REG << 1) + W]; // TODO - handle direction
 			int RM = buffer[i + 1] & 0b111;
 
 			switch (MOD)
@@ -125,14 +148,27 @@ int main(int argc, const char *argv[])
 			}
 
 			case 0b01:
+			{
+				int disp = buffer[i + 2];
+				char res[30];
+				const char *eff_addr = add_displacement(res, ea_base[RM], disp);
+				printf("MOV %s, %s\n", reg, eff_addr);
+				i += 3;
 				break;
+			}
 
 			case 0b10:
+			{
+				int disp = (buffer[i + 2] << 8) + buffer[i + 3];
+				char res[30];
+				const char *eff_addr = add_displacement(res, ea_base[RM], disp);
+				printf("MOV %s, %s\n", reg, eff_addr);
+				i += 4;
 				break;
+			}
 
 			case 0b11:
 			{
-				
 				const char *rm = reg_w_map[(RM << 1) + W];
 				printf("MOV %s, %s\n", rm, reg);
 				i += 2;
