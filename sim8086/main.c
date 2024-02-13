@@ -39,26 +39,36 @@ static const char *ea_base[] = {
 		[0b111] = "[BX]",
 };
 
-char *add_displacement(char* res, const char *ea_base, int displ)
+void print_memory_to_reg(int RM, const char *reg, int displ)
 {
-	size_t len_base = strnlen(ea_base, 10);
+	const char *base = ea_base[RM];
+	if (displ <= 0) {
+		printf("MOV %s, %s\n", reg, base);
+		return;
+	}
+
+	char base_w_disp[30] = {'\0'};
+
+	size_t len_base = strnlen(base, 10);
+
 	char displ_str[10];
 	sprintf(displ_str, "%d", displ);
 	size_t len_disp = strnlen(displ_str, 10);
+ 
 	int i;
-	for (i = 0; i < len_base - 2; i++)
+	for (i = 0; i < len_base - 1; i++)
 	{
-		res[i] = ea_base[i];
+		base_w_disp[i] = base[i];
 	}
-	res[i] = ' ';
-	res[i++] = '+';
-	res[i++] = ' ';
+	base_w_disp[i++] = ' ';
+	base_w_disp[i++] = '+';
+	base_w_disp[i++] = ' ';
 	for (int j = 0; j < len_disp; j++)
 	{
-		res[i] = displ_str[j];
+		base_w_disp[i++] = displ_str[j];
 	}
-	res[i] = ']';
-	return res;
+	base_w_disp[i++] = ']';
+	printf("MOV %s, %s\n", reg, base_w_disp);
 }
 
 void print_binary(const unsigned char *array, size_t size)
@@ -141,8 +151,7 @@ int main(int argc, const char *argv[])
 			{
 			case 0b00:
 			{
-				const char *eff_addr = ea_base[RM];
-				printf("MOV %s, %s\n", reg, eff_addr);
+				print_memory_to_reg(RM, reg, 0);
 				i += 2;
 				break;
 			}
@@ -150,19 +159,15 @@ int main(int argc, const char *argv[])
 			case 0b01:
 			{
 				int disp = buffer[i + 2];
-				char res[30];
-				const char *eff_addr = add_displacement(res, ea_base[RM], disp);
-				printf("MOV %s, %s\n", reg, eff_addr);
+				print_memory_to_reg(RM, reg, disp);
 				i += 3;
 				break;
 			}
 
 			case 0b10:
 			{
-				int disp = (buffer[i + 2] << 8) + buffer[i + 3];
-				char res[30];
-				const char *eff_addr = add_displacement(res, ea_base[RM], disp);
-				printf("MOV %s, %s\n", reg, eff_addr);
+				int disp = (buffer[i + 3] << 8) + buffer[i + 2];
+				print_memory_to_reg(RM, reg, disp);
 				i += 4;
 				break;
 			}
