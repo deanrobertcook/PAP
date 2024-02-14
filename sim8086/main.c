@@ -39,11 +39,16 @@ static const char *ea_base[] = {
 		[0b111] = "[BX]",
 };
 
-void print_memory_to_reg(int RM, const char *reg, int displ)
+void print_memory_to_reg(int RM, int D, const char *reg, int displ)
 {
 	const char *base = ea_base[RM];
-	if (displ <= 0) {
-		printf("MOV %s, %s\n", reg, base);
+	if (displ <= 0)
+	{
+		if (D)
+			printf("MOV %s, %s\n", reg, base);
+		else
+			printf("MOV %s, %s\n", base, reg);
+
 		return;
 	}
 
@@ -54,7 +59,7 @@ void print_memory_to_reg(int RM, const char *reg, int displ)
 	char displ_str[10];
 	sprintf(displ_str, "%d", displ);
 	size_t len_disp = strnlen(displ_str, 10);
- 
+
 	int i;
 	for (i = 0; i < len_base - 1; i++)
 	{
@@ -68,7 +73,10 @@ void print_memory_to_reg(int RM, const char *reg, int displ)
 		base_w_disp[i++] = displ_str[j];
 	}
 	base_w_disp[i++] = ']';
-	printf("MOV %s, %s\n", reg, base_w_disp);
+	if (D)
+		printf("MOV %s, %s\n", reg, base_w_disp);
+	else
+		printf("MOV %s, %s\n", base_w_disp, reg);
 }
 
 void print_binary(const unsigned char *array, size_t size)
@@ -141,6 +149,7 @@ int main(int argc, const char *argv[])
 		else if (buffer[i] >> 2 == 0b100010) // MOV reg/mem to/from reg/mem
 		{
 			int W = buffer[i] & 1;
+			int D = buffer[i] & (1 << 1);
 
 			int MOD = (buffer[i + 1] >> 6) & 0b11;
 			int REG = (buffer[i + 1] >> 3) & 0b111;
@@ -151,7 +160,7 @@ int main(int argc, const char *argv[])
 			{
 			case 0b00:
 			{
-				print_memory_to_reg(RM, reg, 0);
+				print_memory_to_reg(RM, D, reg, 0);
 				i += 2;
 				break;
 			}
@@ -159,7 +168,7 @@ int main(int argc, const char *argv[])
 			case 0b01:
 			{
 				int disp = buffer[i + 2];
-				print_memory_to_reg(RM, reg, disp);
+				print_memory_to_reg(RM, D, reg, disp);
 				i += 3;
 				break;
 			}
@@ -167,7 +176,7 @@ int main(int argc, const char *argv[])
 			case 0b10:
 			{
 				int disp = (buffer[i + 3] << 8) + buffer[i + 2];
-				print_memory_to_reg(RM, reg, disp);
+				print_memory_to_reg(RM, D, reg, disp);
 				i += 4;
 				break;
 			}
