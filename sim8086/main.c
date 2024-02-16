@@ -39,15 +39,15 @@ static const char *ea_base[] = {
 		[0b111] = "[BX]",
 };
 
-void print_memory_to_reg(int RM, int D, const char *reg, int displ)
+void print_memory_to_reg(const char *opcode, int RM, int D, const char *reg, int displ)
 {
 	const char *base = ea_base[RM];
 	if (displ <= 0)
 	{
 		if (D)
-			printf("MOV %s, %s\n", reg, base);
+			printf("%s %s, %s\n", opcode, reg, base);
 		else
-			printf("MOV %s, %s\n", base, reg);
+			printf("%s %s, %s\n", opcode, base, reg);
 
 		return;
 	}
@@ -74,9 +74,9 @@ void print_memory_to_reg(int RM, int D, const char *reg, int displ)
 	}
 	base_w_disp[i++] = ']';
 	if (D)
-		printf("MOV %s, %s\n", reg, base_w_disp);
+		printf("%s %s, %s\n", opcode, reg, base_w_disp);
 	else
-		printf("MOV %s, %s\n", base_w_disp, reg);
+		printf("%s %s, %s\n", opcode, base_w_disp, reg);
 }
 
 void print_binary(const unsigned char *array, size_t size)
@@ -153,14 +153,14 @@ int main(int argc, const char *argv[])
 
 			int MOD = (buffer[i + 1] >> 6) & 0b11;
 			int REG = (buffer[i + 1] >> 3) & 0b111;
-			const char *reg = reg_w_map[(REG << 1) + W]; // TODO - handle direction
+			const char *reg = reg_w_map[(REG << 1) + W];
 			int RM = buffer[i + 1] & 0b111;
 
 			switch (MOD)
 			{
 			case 0b00:
 			{
-				print_memory_to_reg(RM, D, reg, 0);
+				print_memory_to_reg("MOV", RM, D, reg, 0);
 				i += 2;
 				break;
 			}
@@ -168,7 +168,7 @@ int main(int argc, const char *argv[])
 			case 0b01:
 			{
 				int disp = buffer[i + 2];
-				print_memory_to_reg(RM, D, reg, disp);
+				print_memory_to_reg("MOV", RM, D, reg, disp);
 				i += 3;
 				break;
 			}
@@ -176,7 +176,7 @@ int main(int argc, const char *argv[])
 			case 0b10:
 			{
 				int disp = (buffer[i + 3] << 8) + buffer[i + 2];
-				print_memory_to_reg(RM, D, reg, disp);
+				print_memory_to_reg("MOV", RM, D, reg, disp);
 				i += 4;
 				break;
 			}
@@ -187,6 +187,87 @@ int main(int argc, const char *argv[])
 				printf("MOV %s, %s\n", rm, reg);
 				i += 2;
 				break;
+			}
+			}
+		}
+		else if (buffer[i] >> 2 == 0b00000) // ADD reg/mem with reg to either
+		{
+			int W = buffer[i] & 1;
+			int D = buffer[i] & (1 << 1);
+
+			int MOD = (buffer[i + 1] >> 6) & 0b11;
+			int REG = (buffer[i + 1] >> 3) & 0b111;
+			const char *reg = reg_w_map[(REG << 1) + W];
+			int RM = buffer[i + 1] & 0b111;
+
+			switch (MOD)
+			{
+			case 0b00:
+			{
+				print_memory_to_reg("ADD", RM, D, reg, 0);
+				i += 2;
+				break;
+			}
+
+			case 0b01:
+			{
+				int disp = buffer[i + 2];
+				print_memory_to_reg("ADD", RM, D, reg, disp);
+				i += 3;
+				break;
+			}
+
+			case 0b10:
+			{
+				int disp = (buffer[i + 3] << 8) + buffer[i + 2];
+				print_memory_to_reg("ADD", RM, D, reg, disp);
+				i += 4;
+				break;
+			}
+
+			case 0b11:
+			{
+				const char *rm = reg_w_map[(RM << 1) + W];
+				printf("ADD %s, %s\n", rm, reg);
+				i += 2;
+				break;
+			}
+			}
+		}
+		else if (buffer[i] >> 2 == 0b100000) // ADD immediate to reg/mem
+		{
+			int SW = buffer[i] & 0b11;
+			int W = buffer[i] & 1;
+			int S = buffer[i] & (1 << 1);
+
+			int MOD = (buffer[i + 1] >> 6) & 0b11;
+			int RM = buffer[i + 1] & 0b111;
+
+			switch (MOD)
+			{
+			case 0b11:
+			{
+				// printf("RM: %d, W: %d\n", RM, W);
+				const char *rm = reg_w_map[(RM << 1) + W];
+				int data = buffer[i + 2];
+				switch (SW) //TODO(dean) need to properly handle sign extension
+				{
+				case 0b01:
+				{
+					data = data + (buffer[i + 3] << 8);
+					i += 4;
+					break;
+				}
+				default:
+					i += 3;
+				}
+				printf("ADD %s, %d\n", rm, data);
+				break;
+			}
+			default:
+			{
+				printf("Unhandled MOD: %d, aborting", MOD);
+				return 1;
 			}
 			}
 		}
