@@ -39,20 +39,10 @@ static const char *ea_base[] = {
 		[0b111] = "[BX]",
 };
 
-void print_memory_to_reg(const char *opcode, int RM, int D, const char *reg, int displ)
+char *get_ea_with_displ(int RM, int displ)
 {
 	const char *base = ea_base[RM];
-	if (displ <= 0)
-	{
-		if (D)
-			printf("%s %s, %s\n", opcode, reg, base);
-		else
-			printf("%s %s, %s\n", opcode, base, reg);
-
-		return;
-	}
-
-	char base_w_disp[30] = {'\0'};
+	char *base_w_disp = (char *)calloc(30, sizeof(char));
 
 	size_t len_base = strnlen(base, 10);
 
@@ -73,10 +63,17 @@ void print_memory_to_reg(const char *opcode, int RM, int D, const char *reg, int
 		base_w_disp[i++] = displ_str[j];
 	}
 	base_w_disp[i++] = ']';
+	return base_w_disp;
+}
+
+void print_memory_to_reg(const char *opcode, int RM, int D, const char *reg, int displ)
+{
+	char *base_w_disp = get_ea_with_displ(RM, displ);
 	if (D)
 		printf("%s %s, %s\n", opcode, reg, base_w_disp);
 	else
 		printf("%s %s, %s\n", opcode, base_w_disp, reg);
+	free(base_w_disp);
 }
 
 void print_binary(const unsigned char *array, size_t size)
@@ -243,31 +240,49 @@ int main(int argc, const char *argv[])
 			int MOD = (buffer[i + 1] >> 6) & 0b11;
 			int RM = buffer[i + 1] & 0b111;
 
+			char *w_str = W ? "word" : "byte";
+
+			int data = buffer[i + 2];
+			if (SW == 0b01)
+				data = data + (buffer[i + 3] << 8); // TODO(dean) need to properly handle sign extension
+			int data_len = SW == 0b01 ? 2 : 1;
+
 			switch (MOD)
 			{
 			case 0b11:
 			{
-				// printf("RM: %d, W: %d\n", RM, W);
 				const char *rm = reg_w_map[(RM << 1) + W];
-				int data = buffer[i + 2];
-				switch (SW) //TODO(dean) need to properly handle sign extension
-				{
-				case 0b01:
-				{
-					data = data + (buffer[i + 3] << 8);
-					i += 4;
-					break;
-				}
-				default:
-					i += 3;
-				}
 				printf("ADD %s, %d\n", rm, data);
+				i += 2 + data_len;
 				break;
 			}
-			default:
+			case 0b00:
 			{
-				printf("Unhandled MOD: %d, aborting", MOD);
-				return 1;
+				char *ea_w_disp = get_ea_with_displ(RM, 0);
+				printf("ADD %s %s, %d\n", w_str, ea_w_disp, data);
+				free(ea_w_disp);
+				i += 2 + data_len;
+				break;
+			}
+
+			case 0b01:
+			{
+				int disp = buffer[i + 2];
+				char *ea_w_disp = get_ea_with_displ(RM, disp);
+				printf("ADD %s %s, %d\n", w_str, ea_w_disp, data);
+				free(ea_w_disp);
+				i += 3 + data_len;
+				break;
+			}
+
+			case 0b10:
+			{
+				int disp = (buffer[i + 3] << 8) + buffer[i + 2];
+				char *ea_w_disp = get_ea_with_displ(RM, disp);
+				printf("ADD %s %s, %d\n", w_str, ea_w_disp, data);
+				free(ea_w_disp);
+				i += 4 + data_len;
+				break;
 			}
 			}
 		}
